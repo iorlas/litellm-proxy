@@ -1,0 +1,63 @@
+configs:
+  litellm-config:
+    content: |
+      model_list:
+        # Primary: OpenRouter free tier
+        - model_name: llama3.2:3b
+          litellm_params:
+            model: openrouter/meta-llama/llama-3.3-70b-instruct:free
+            api_key: os.environ/OPENROUTER_API_KEY
+          priority: 1
+
+        # Fallback: MacBook Ollama (not always on)
+        - model_name: llama3.2:3b
+          litellm_params:
+            model: ollama/llama3.2:3b
+            api_base: http://dtomilin-mwg-1.shrimp-boa.ts.net:11434
+          priority: 2
+
+        # Embedding: OpenRouter
+        - model_name: nomic-embed-text
+          litellm_params:
+            model: openrouter/nomic-ai/nomic-embed-text-v1.5
+            api_key: os.environ/OPENROUTER_API_KEY
+
+      router_settings:
+        routing_strategy: "priority-based"
+        num_retries: 2
+        fallbacks:
+          - llama3.2:3b:
+              - llama3.2:3b
+
+      general_settings:
+        master_key: os.environ/LITELLM_MASTER_KEY
+
+services:
+  litellm:
+    image: docker.litellm.ai/berriai/litellm:main-stable
+    pull_policy: always
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    environment:
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+    configs:
+      - source: litellm-config
+        target: /app/config.yaml
+    labels:
+      - tailscale=true
+      - traefik.enable=true
+      - traefik.http.routers.litellm.rule=Host(`litellm.ts.${HOST_DOMAIN}`)
+      - traefik.http.routers.litellm.entrypoints=web
+      - traefik.http.services.litellm.loadbalancer.server.port=4000
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:4000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks: [dokploy-network]
+    restart: unless-stopped
+
+networks:
+  dokploy-network:
+    external: true
