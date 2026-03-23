@@ -24,7 +24,6 @@ jobs:
       - name: Validate compose syntax
         run: |
           export OPENROUTER_API_KEY=test
-          export LITELLM_MASTER_KEY=sk-test
           export HOST_DOMAIN=example.com
           docker compose -f docker-compose.prod.yml config --quiet
 
@@ -35,14 +34,14 @@ jobs:
           DOKPLOY_AUTH_TOKEN: ${{ secrets.DOKPLOY_AUTH_TOKEN }}
           DOKPLOY_COMPOSE_ID: ${{ secrets.DOKPLOY_COMPOSE_ID }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          LITELLM_MASTER_KEY: ${{ secrets.LITELLM_MASTER_KEY }}
+
         run: |
           MISSING=""
           [ -z "$DOKPLOY_URL" ] && MISSING="$MISSING DOKPLOY_URL"
           [ -z "$DOKPLOY_AUTH_TOKEN" ] && MISSING="$MISSING DOKPLOY_AUTH_TOKEN"
           [ -z "$DOKPLOY_COMPOSE_ID" ] && MISSING="$MISSING DOKPLOY_COMPOSE_ID"
           [ -z "$OPENROUTER_API_KEY" ] && MISSING="$MISSING OPENROUTER_API_KEY"
-          [ -z "$LITELLM_MASTER_KEY" ] && MISSING="$MISSING LITELLM_MASTER_KEY"
+
           if [ -n "$MISSING" ]; then
             echo "::error::Missing required secrets:$MISSING"
             exit 1
@@ -55,11 +54,10 @@ jobs:
           DOKPLOY_AUTH_TOKEN: ${{ secrets.DOKPLOY_AUTH_TOKEN }}
           DOKPLOY_COMPOSE_ID: ${{ secrets.DOKPLOY_COMPOSE_ID }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          LITELLM_MASTER_KEY: ${{ secrets.LITELLM_MASTER_KEY }}
+
         run: |
           ENV_CONTENT=$(printf '%s\n' \
             "OPENROUTER_API_KEY=${OPENROUTER_API_KEY}" \
-            "LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}" \
             "HOST_DOMAIN=shen.iorlas.net" \
           )
 

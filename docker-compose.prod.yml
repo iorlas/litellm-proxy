@@ -23,9 +23,6 @@ configs:
           - llama3.2:3b:
               - llama3.2:3b-local
 
-      general_settings:
-        master_key: os.environ/LITELLM_MASTER_KEY
-
 services:
   litellm:
     image: docker.litellm.ai/berriai/litellm:main-stable
@@ -33,7 +30,6 @@ services:
     command: ["--config", "/app/config.yaml", "--port", "4000"]
     environment:
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
-      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
     configs:
       - source: litellm-config
         target: /app/config.yaml
