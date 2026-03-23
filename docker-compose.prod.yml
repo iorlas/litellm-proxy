@@ -39,6 +39,7 @@ services:
         target: /app/config.yaml
     labels:
       - tailscale=true
+      - traefik.enable=true
       - traefik.http.routers.litellm.rule=Host(`litellm.ts.${HOST_DOMAIN}`)
       - traefik.http.routers.litellm.entrypoints=web
       - traefik.http.services.litellm.loadbalancer.server.port=4000
