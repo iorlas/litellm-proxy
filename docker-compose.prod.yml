@@ -7,14 +7,14 @@ configs:
           litellm_params:
             model: openrouter/meta-llama/llama-3.3-70b-instruct:free
             api_key: os.environ/OPENROUTER_API_KEY
-          priority: 1
+            order: 1
 
         # Fallback: MacBook Ollama (not always on)
         - model_name: llama3.2:3b
           litellm_params:
             model: ollama/llama3.2:3b
             api_base: http://dtomilin-mwg-1.shrimp-boa.ts.net:11434
-          priority: 2
+            order: 2
 
         # Embedding: OpenRouter
         - model_name: nomic-embed-text
@@ -23,11 +23,8 @@ configs:
             api_key: os.environ/OPENROUTER_API_KEY
 
       router_settings:
-        routing_strategy: "priority-based"
         num_retries: 2
-        fallbacks:
-          - llama3.2:3b:
-              - llama3.2:3b
+        enable_pre_call_checks: true
 
       general_settings:
         master_key: os.environ/LITELLM_MASTER_KEY
