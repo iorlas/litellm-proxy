@@ -1,9 +1,6 @@
-services:
-  litellm:
-    image: docker.litellm.ai/berriai/litellm:main-v1.82.3
-    hostname: litellm
-    command: >
-      sh -c 'cat > /app/config.yaml <<CONF
+configs:
+  litellm-config:
+    content: |
       model_list:
         - model_name: llama3.2:3b
           litellm_params:
@@ -25,10 +22,17 @@ services:
         fallbacks:
           - llama3.2:3b:
               - llama3.2:3b-local
-      CONF
-      exec litellm --config /app/config.yaml --port 4000'
+
+services:
+  litellm:
+    image: docker.litellm.ai/berriai/litellm:main-v1.82.3
+    hostname: litellm
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
     environment:
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+    configs:
+      - source: litellm-config
+        target: /app/config.yaml
     labels:
       - tailscale=true
       - traefik.enable=true
