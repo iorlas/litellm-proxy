@@ -3,7 +3,6 @@
 #   DOKPLOY_COMPOSE_ID  — per-repo
 #   DOKPLOY_URL         — https://shen.iorlas.net
 #   OPENROUTER_API_KEY  — OpenRouter API key
-#   LITELLM_MASTER_KEY  — Admin key for LiteLLM proxy (must start with sk-)
 
 name: Deploy LiteLLM Proxy
 
@@ -20,84 +19,30 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
 
-      - name: Validate compose syntax
+      - name: Install tools
         run: |
-          export OPENROUTER_API_KEY=test
-          export HOST_DOMAIN=example.com
-          docker compose -f docker-compose.prod.yml config --quiet
+          pip install yamllint
+          CONFTEST_URL="https://github.com/open-policy-agent/conftest"
+          CONFTEST_VER="v0.56.0"
+          wget -qO - "${CONFTEST_URL}/releases/download/${CONFTEST_VER}/conftest_0.56.0_Linux_x86_64.tar.gz" \
+            | tar xz -C /usr/local/bin conftest
 
-      - name: Validate required secrets
+      - name: Lint
+        run: make lint
+
+      - name: Deploy to Dokploy
         if: github.event_name != 'pull_request'
         env:
-          DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
           DOKPLOY_AUTH_TOKEN: ${{ secrets.DOKPLOY_AUTH_TOKEN }}
+          DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
           DOKPLOY_COMPOSE_ID: ${{ secrets.DOKPLOY_COMPOSE_ID }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-
+          HOST_DOMAIN: shen.iorlas.net
         run: |
-          MISSING=""
-          [ -z "$DOKPLOY_URL" ] && MISSING="$MISSING DOKPLOY_URL"
-          [ -z "$DOKPLOY_AUTH_TOKEN" ] && MISSING="$MISSING DOKPLOY_AUTH_TOKEN"
-          [ -z "$DOKPLOY_COMPOSE_ID" ] && MISSING="$MISSING DOKPLOY_COMPOSE_ID"
-          [ -z "$OPENROUTER_API_KEY" ] && MISSING="$MISSING OPENROUTER_API_KEY"
-
-          if [ -n "$MISSING" ]; then
-            echo "::error::Missing required secrets:$MISSING"
-            exit 1
-          fi
-
-      - name: Sync compose + env to Dokploy and verify
-        if: github.event_name != 'pull_request'
-        env:
-          DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
-          DOKPLOY_AUTH_TOKEN: ${{ secrets.DOKPLOY_AUTH_TOKEN }}
-          DOKPLOY_COMPOSE_ID: ${{ secrets.DOKPLOY_COMPOSE_ID }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-
-        run: |
-          ENV_CONTENT=$(printf '%s\n' \
-            "OPENROUTER_API_KEY=${OPENROUTER_API_KEY}" \
-            "HOST_DOMAIN=shen.iorlas.net" \
-          )
-
-          RESPONSE=$(curl -s --fail-with-body -X POST "${DOKPLOY_URL}/api/compose.update" \
-            -H "x-api-key: ${DOKPLOY_AUTH_TOKEN}" \
-            -H "Content-Type: application/json" \
-            -d "$(jq -n \
-              --arg id "${DOKPLOY_COMPOSE_ID}" \
-              --arg env "$ENV_CONTENT" \
-              --arg compose "$(cat docker-compose.prod.yml)" \
-              '{composeId: $id, env: $env, composeFile: $compose}'
-            )")
-
-          STORED_LEN=$(echo "$RESPONSE" | jq -r '.composeFile | length')
-          if [ "$STORED_LEN" -lt 10 ]; then
-            echo "::error::compose.update did not persist composeFile (got $STORED_LEN chars)"
-            exit 1
-          fi
-          echo "compose.update verified: $STORED_LEN chars persisted"
-
-      - name: Deploy and wait
-        if: github.event_name != 'pull_request'
-        env:
-          DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
-          DOKPLOY_AUTH_TOKEN: ${{ secrets.DOKPLOY_AUTH_TOKEN }}
-          DOKPLOY_COMPOSE_ID: ${{ secrets.DOKPLOY_COMPOSE_ID }}
-        run: |
-          curl -s --fail-with-body -X POST "${DOKPLOY_URL}/api/compose.deploy" \
-            -H "x-api-key: ${DOKPLOY_AUTH_TOKEN}" \
-            -H "Content-Type: application/json" \
-            -d "{\"composeId\": \"${DOKPLOY_COMPOSE_ID}\", \"title\": \"Deploy litellm-proxy\"}"
-
-          for i in $(seq 1 60); do
-            sleep 5
-            STATUS=$(curl -s "${DOKPLOY_URL}/api/deployment.allByCompose?composeId=${DOKPLOY_COMPOSE_ID}" \
-              -H "x-api-key: ${DOKPLOY_AUTH_TOKEN}" | jq -r '.[0].status // "unknown"')
-            echo "  Attempt $i/60: status=$STATUS"
-            [ "$STATUS" = "done" ] && echo "Deploy succeeded" && exit 0
-            [ "$STATUS" = "error" ] && echo "::error::Deploy FAILED" && \
-              curl -s "${DOKPLOY_URL}/api/deployment.allByCompose?composeId=${DOKPLOY_COMPOSE_ID}" \
-                -H "x-api-key: ${DOKPLOY_AUTH_TOKEN}" | jq -r '.[0].errorMessage // "no error message"' && exit 1
-          done
-          echo "::error::Deploy TIMEOUT (5 min)" && exit 1
+          mkdir -p ~/.config/dokploy
+          echo "${DOKPLOY_AUTH_TOKEN}" > ~/.config/dokploy/token
+          echo "${DOKPLOY_URL}" > ~/.config/dokploy/url
+          pip install httpx websockets click
+          python3 scripts/dokctl.py deploy "${DOKPLOY_COMPOSE_ID}" docker-compose.prod.yml
