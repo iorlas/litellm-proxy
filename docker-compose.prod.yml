@@ -14,7 +14,7 @@ configs:
 
         - model_name: nomic-embed-text
           litellm_params:
-            model: openrouter/nomic-ai/nomic-embed-text-v1.5
+            model: openrouter/openai/text-embedding-3-small
             api_key: os.environ/OPENROUTER_API_KEY
 
       router_settings:
