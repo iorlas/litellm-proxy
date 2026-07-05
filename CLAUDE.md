@@ -1,4 +1,7 @@
-# LiteLLM Proxy Hub — OpenAI-compatible LLM routing proxy
+# LiteLLM Proxy Hub — DEPRECATED (2026-07-05)
+
+**Sunset. Superseded by `~/Workspaces/homelab/apps/private/llm-gateway/` (see README.md).**
+Do not extend or deploy from here. LiteLLM now runs as a Komodo stack in the homelab monorepo.
 
 LiteLLM proxy with OpenRouter primary and Ollama fallback. Deployed via Dokploy on shen.
 
